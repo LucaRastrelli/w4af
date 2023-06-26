@@ -219,6 +219,9 @@ class RunFunctor(Process):
             process.terminate()
         
         final_content = process.stdout.read()
+        file = open("/home/rastrelli2/tables.txt", "w")
+        file.write(final_content)
+        file.close()
         om.out.console(final_content, new_line=False)
 
 

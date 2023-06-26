@@ -33,6 +33,7 @@ class ImprovedMozillaCookieJar(MozillaCookieJar):
         now = time.time()
 
         magic = f.readline()
+        self.magic_re = re.compile("#( Netscape)? HTTP Cookie File")
         if not re.search(self.magic_re, magic):
             f.close()
 
@@ -108,8 +109,10 @@ class ImprovedMozillaCookieJar(MozillaCookieJar):
                            {})
                 if not ignore_discard and c.discard:
                     continue
+                '''
                 if not ignore_expires and c.is_expired(now):
                     continue
+                '''
                 self.set_cookie(c)
 
         except IOError:
