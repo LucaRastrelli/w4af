@@ -441,7 +441,7 @@ class Connect(object):
             requestMsg += " %s" % _http_client.HTTPConnection._http_vsn_str
 
             # Prepare HTTP headers
-            headers = forgeHeaders({HTTP_HEADER.COOKIE: cookie, HTTP_HEADER.USER_AGENT: ua, HTTP_HEADER.REFERER: referer, HTTP_HEADER.HOST: host}, base=None if target else {})
+            headers = forgeHeaders({HTTP_HEADER.COOKIE: cookie, HTTP_HEADER.USER_AGENT: ua, HTTP_HEADER.REFERER: referer, HTTP_HEADER.HOST: getHostHeader(url)}, base=None if target else {})
 
             if HTTP_HEADER.COOKIE in headers:
                 cookie = headers[HTTP_HEADER.COOKIE]
@@ -453,9 +453,6 @@ class Connect(object):
                 headers[HTTP_HEADER.PROXY_AUTHORIZATION] = kb.proxyAuthHeader
 
             if not conf.requestFile or not target:
-                if not getHeader(headers, HTTP_HEADER.HOST):
-                    headers[HTTP_HEADER.HOST] = getHostHeader(url)
-
                 if not getHeader(headers, HTTP_HEADER.ACCEPT):
                     headers[HTTP_HEADER.ACCEPT] = HTTP_ACCEPT_HEADER_VALUE
 
@@ -544,7 +541,7 @@ class Connect(object):
                 responseHeaders = _(ws.getheaders())
                 responseHeaders.headers = ["%s: %s\r\n" % (_[0].capitalize(), _[1]) for _ in responseHeaders.items()]
 
-                requestHeaders += "\r\n".join(["%s: %s" % (getUnicode(key.capitalize() if hasattr(key, "capitalize") else key), getUnicode(value)) for (key, value) in responseHeaders.items()])
+                requestHeaders += "\r\n".join(["%s: %s" % (u"-".join(_.capitalize() for _ in getUnicode(key).split(u'-')) if hasattr(key, "capitalize") else getUnicode(key), getUnicode(value)) for (key, value) in responseHeaders.items()])
                 requestMsg += "\r\n%s" % requestHeaders
 
                 if post is not None:
@@ -583,7 +580,7 @@ class Connect(object):
                     else:
                         post, headers = req.data, req.headers
 
-                requestHeaders += "\r\n".join(["%s: %s" % (getUnicode(key.capitalize() if hasattr(key, "capitalize") else key), getUnicode(value)) for (key, value) in req.header_items()])
+                requestHeaders += "\r\n".join(["%s: %s" % (u"-".join(_.capitalize() for _ in getUnicode(key).split(u'-')) if hasattr(key, "capitalize") else getUnicode(key), getUnicode(value)) for (key, value) in req.header_items()])
 
                 if not getRequestHeader(req, HTTP_HEADER.COOKIE) and conf.cj:
                     conf.cj._policy._now = conf.cj._now = int(time.time())
@@ -752,7 +749,7 @@ class Connect(object):
 
             responseMsg += "[#%d] (%s %s):\r\n" % (threadData.lastRequestUID, code, status)
 
-            if responseHeaders:
+            if responseHeaders and getattr(responseHeaders, "headers", None):
                 logHeaders = "".join(getUnicode(responseHeaders.headers)).strip()
 
             logHTTPTraffic(requestMsg, "%s%s\r\n\r\n%s" % (responseMsg, logHeaders, (page or "")[:MAX_CONNECTION_READ_SIZE]), start, time.time())
@@ -814,7 +811,7 @@ class Connect(object):
                     debugMsg = "got HTTP error code: %d ('%s')" % (code, status)
                     logger.debug(debugMsg)
 
-        except (_urllib.error.URLError, socket.error, socket.timeout, _http_client.HTTPException, struct.error, binascii.Error, ProxyError, SqlmapCompressionException, WebSocketException, TypeError, ValueError, OverflowError, AttributeError, OSError):
+        except (_urllib.error.URLError, socket.error, socket.timeout, _http_client.HTTPException, struct.error, binascii.Error, ProxyError, SqlmapCompressionException, WebSocketException, TypeError, ValueError, OverflowError, AttributeError, OSError, AssertionError, KeyError):
             tbMsg = traceback.format_exc()
 
             if conf.debug:
@@ -822,6 +819,11 @@ class Connect(object):
 
             if checking:
                 return None, None, None
+            elif "KeyError:" in tbMsg:
+                if "content-length" in tbMsg:
+                    return None, None, None
+                else:
+                    raise
             elif "AttributeError:" in tbMsg:
                 if "WSAECONNREFUSED" in tbMsg:
                     return None, None, None
@@ -1333,7 +1335,7 @@ class Connect(object):
                     compile(getBytes(re.sub(r"\s*;\s*", "\n", conf.evalCode)), "", "exec")
                 except SyntaxError as ex:
                     if ex.text:
-                        original = replacement = ex.text.strip()
+                        original = replacement = getUnicode(ex.text.strip())
 
                         if '=' in original:
                             name, value = original.split('=', 1)

@@ -106,6 +106,7 @@ def start_scan():
         abort(400, str(bfe))
 
     scan_id = get_new_scan_id()
+    scan_id = 0
     scan_info = ScanInfo()
     scan_info.w4af_core = w4af_core
     scan_info.target_urls = target_urls
